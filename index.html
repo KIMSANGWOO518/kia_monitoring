@@ -24,7 +24,6 @@ header{background:#1B3A5C;color:#fff;padding:18px 32px;display:flex;align-items:
 .stat{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:600}
 .s-total{background:#e8eaf0;color:#444}
 .s-owned{background:#D4EDDA;color:#155724}
-.s-review{background:#FFF3CD;color:#856404}
 .s-unowned{background:#F8D7DA;color:#721C24}
 .s-none{background:#eee;color:#666}
 .empty{text-align:center;padding:80px 20px;color:#bbb;font-size:14px}
@@ -49,6 +48,19 @@ header{background:#1B3A5C;color:#fff;padding:18px 32px;display:flex;align-items:
 </div>
 
 <script>
+const KV_URL   = 'https://merry-ewe-67135.upstash.io';
+const KV_TOKEN = 'gQAAAAAAAQY_AAIgcDE5YTczZTM5MjJjNDk0NjZhYTNlZjNjNGQxN2ExNzNkZg';
+
+async function getKVStatus(version) {
+  try {
+    const resp = await fetch(KV_URL + '/get/' + version + '_status', {
+      headers: { Authorization: 'Bearer ' + KV_TOKEN }
+    });
+    const data = await resp.json();
+    return data.result ? JSON.parse(data.result) : {};
+  } catch(e) { return {}; }
+}
+
 async function loadVersions() {
   try {
     const resp = await fetch('/data/versions.json');
@@ -67,14 +79,17 @@ async function loadVersions() {
 
     document.getElementById('hd-count').textContent = `총 ${versions.length}개 버전`;
 
+    // KV에서 각 버전의 상태를 병렬로 로드
+    const kvStatuses = await Promise.all(versions.map(v => getKVStatus(v.version)));
+
     const grid = document.getElementById('grid');
     grid.style.display = 'grid';
-    grid.innerHTML = versions.map(v => {
-      const total    = v.road_count || 0;
-      const owned    = v.owned    || 0;
-      const review   = v.review   || 0;
-      const unowned  = v.unowned  || 0;
-      const noneCount = total - owned - review - unowned;
+    grid.innerHTML = versions.map((v, vi) => {
+      const total   = v.road_count || 0;
+      const kv      = kvStatuses[vi];
+      const owned   = Object.values(kv).filter(s => s === 'owned').length;
+      const unowned = Object.values(kv).filter(s => s === 'unowned').length;
+      const none    = total - owned - unowned;
       return `<div class="card" onclick="location.href='viewer.html?v=${encodeURIComponent(v.version)}'">
         <div class="card-top">
           <span class="version-badge">${v.version}</span>
@@ -84,9 +99,8 @@ async function loadVersions() {
         <div class="card-stats">
           <span class="stat s-total">${total}개 도로</span>
           ${owned   ? `<span class="stat s-owned">보유 ${owned}</span>`       : ''}
-          ${review  ? `<span class="stat s-review">확인필요 ${review}</span>` : ''}
           ${unowned ? `<span class="stat s-unowned">미보유 ${unowned}</span>` : ''}
-          ${noneCount > 0 ? `<span class="stat s-none">미분석 ${noneCount}</span>` : ''}
+          ${none > 0 ? `<span class="stat s-none">미검토 ${none}</span>` : ''}
         </div>
       </div>`;
     }).join('');

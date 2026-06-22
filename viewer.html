@@ -18,10 +18,15 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
 .sc:hover{border-color:#aaa}
 .sc.active-all{background:#555;border-color:#555;color:#fff}
 .sc.active-owned{background:#27AE60;border-color:#27AE60;color:#fff}
-.sc.active-review{background:#F39C12;border-color:#F39C12;color:#fff}
 .sc.active-unowned{background:#E74C3C;border-color:#E74C3C;color:#fff}
+.sc.active-none{background:#888;border-color:#888;color:#fff}
 .sc-num{font-size:18px;font-weight:700}
 .sc-lbl{font-size:10px;margin-top:1px;opacity:.85}
+.save-bar{padding:6px 8px;border-bottom:1px solid #eee;display:flex;gap:5px}
+.btn-save{flex:1;padding:6px;background:#1B3A5C;color:#fff;border:none;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit}
+.btn-save:hover{background:#2a5080}
+.btn-export{padding:6px 10px;background:#fff;color:#555;border:1px solid #ccc;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit}
+.btn-export:hover{background:#f5f5f5}
 .search{padding:6px 8px;border-bottom:1px solid #eee}
 .search input{width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:5px;font-size:12px;outline:none}
 .search input:focus{border-color:#1B3A5C}
@@ -30,19 +35,13 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
 .ri:hover{background:#f5f8ff}
 .ri.active{background:#EEF2FF;border-left-color:#1B3A5C}
 .ri-top{display:flex;align-items:center;gap:5px;margin-bottom:2px}
-.ri-id{font-size:12px;font-weight:600;color:#1B3A5C}
-.badge{font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;white-space:nowrap}
-.b-owned{background:#D4EDDA;color:#155724}
-.b-review{background:#FFF3CD;color:#856404}
-.b-unowned{background:#F8D7DA;color:#721C24}
-.b-none{background:#eee;color:#666}
+.ri-id{font-size:12px;font-weight:600;color:#1B3A5C;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status-select{font-size:10px;padding:2px 5px;border-radius:4px;border:1px solid #ccc;
+  cursor:pointer;outline:none;background:#f8f9fa;color:#555;font-family:inherit;flex-shrink:0}
+.status-select.s-owned{background:#D4EDDA;color:#155724;border-color:#b7dfb8}
+.status-select.s-unowned{background:#F8D7DA;color:#721C24;border-color:#f1b0b7}
 .ri-sub{font-size:11px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ri-meta{font-size:10px;color:#aaa;margin-top:1px}
-.legend{padding:8px 12px;border-top:1px solid #eee;background:#fafafa}
-.lg-title{font-size:10px;color:#888;margin-bottom:4px}
-.lg-items{display:flex;gap:10px;flex-wrap:wrap}
-.lg-item{display:flex;align-items:center;gap:3px;font-size:10px;color:#555}
-.lg-dot{width:12px;height:4px;border-radius:2px}
 #map-wrap{flex:1;position:relative}
 #map{width:100%;height:100%}
 #overlay{position:fixed;top:0;left:320px;right:0;bottom:0;pointer-events:none;z-index:5}
@@ -60,20 +59,21 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
 .pop-dl{display:block;width:100%;margin-top:8px;padding:7px 0;background:#1B3A5C;color:#fff;
   border:none;border-radius:5px;font-size:12px;cursor:pointer;text-align:center}
 .pop-dl:hover{background:#2a5080}
-/* 로딩/오류 화면 */
 #init-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
   background:#f0f2f5;z-index:999;font-family:'Malgun Gothic',sans-serif}
 .init-box{text-align:center;color:#555}
 .init-spinner{width:32px;height:32px;border:3px solid #ddd;border-top-color:#1B3A5C;
   border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.init-err{color:#c0392b;font-size:14px}
+.init-err{color:#c0392b;font-size:14px;line-height:1.8}
 .init-err a{color:#1B3A5C}
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#333;color:#fff;
+  padding:9px 20px;border-radius:20px;font-size:12px;z-index:9999;display:none;
+  pointer-events:none;font-family:'Malgun Gothic',sans-serif;white-space:nowrap}
 </style>
 </head>
 <body>
 
-<!-- 로딩/오류 화면 -->
 <div id="init-screen">
   <div class="init-box">
     <div class="init-spinner"></div>
@@ -81,14 +81,17 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
   </div>
 </div>
 
+<div id="toast"></div>
+
 <div id="sidebar">
   <div class="sb-head">
     <div class="sb-head-top">
-      <button class="sb-back" onclick="location.href='index.html'" title="목록으로">← 목록</button>
+      <button class="sb-back" onclick="location.href='index.html'">← 목록</button>
       <h1>타사 도로 검토 뷰어</h1>
     </div>
     <p id="sb-subtitle">-</p>
   </div>
+
   <div class="stats">
     <div class="sc active-all" data-f="all" onclick="setFilter('all')">
       <div class="sc-num" id="cnt-all">0</div><div class="sc-lbl">전체</div>
@@ -96,26 +99,23 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
     <div class="sc" data-f="owned" onclick="setFilter('owned')">
       <div class="sc-num" id="cnt-owned">0</div><div class="sc-lbl">보유</div>
     </div>
-    <div class="sc" data-f="review" onclick="setFilter('review')">
-      <div class="sc-num" id="cnt-review">0</div><div class="sc-lbl">확인필요</div>
-    </div>
     <div class="sc" data-f="unowned" onclick="setFilter('unowned')">
       <div class="sc-num" id="cnt-unowned">0</div><div class="sc-lbl">미보유</div>
     </div>
+    <div class="sc" data-f="none" onclick="setFilter('none')">
+      <div class="sc-num" id="cnt-none">0</div><div class="sc-lbl">미검토</div>
+    </div>
   </div>
+
+  <div class="save-bar">
+    <button class="btn-save" onclick="saveStatusToKV()">저장 (공유)</button>
+    <button class="btn-export" onclick="exportData()">내보내기</button>
+  </div>
+
   <div class="search">
     <input type="text" id="q" placeholder="update_id, 노선명, 구간내용 검색…" oninput="applyFilters()">
   </div>
   <div id="road-list"></div>
-  <div class="legend">
-    <div class="lg-title">범례</div>
-    <div class="lg-items">
-      <div class="lg-item"><div class="lg-dot" style="background:#27AE60"></div>보유</div>
-      <div class="lg-item"><div class="lg-dot" style="background:#F39C12"></div>확인 필요</div>
-      <div class="lg-item"><div class="lg-dot" style="background:#E74C3C"></div>미보유</div>
-      <div class="lg-item"><div class="lg-dot" style="background:#888888"></div>미분석</div>
-    </div>
-  </div>
 </div>
 
 <canvas id="overlay"></canvas>
@@ -132,8 +132,7 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
       <div class="pop-row"><span class="pop-k">카테고리</span><span class="pop-v" id="p-cat">-</span></div>
       <div class="pop-row"><span class="pop-k">구간내용</span><span class="pop-v" id="p-cnt">-</span></div>
       <div class="pop-row"><span class="pop-k">drive_type</span><span class="pop-v" id="p-drv">-</span></div>
-      <div class="pop-row"><span class="pop-k">분류</span><span class="pop-v" id="p-sta">-</span></div>
-      <div class="pop-row"><span class="pop-k">평균 거리</span><span class="pop-v" id="p-dst">-</span></div>
+      <div class="pop-row"><span class="pop-k">검토결과</span><span class="pop-v" id="p-sta">미검토</span></div>
       <div class="pop-row"><span class="pop-k">구간 수</span><span class="pop-v" id="p-seg">-</span></div>
       <button class="pop-dl" onclick="downloadGeoJSON(selIdx)">GeoJSON 다운로드</button>
     </div>
@@ -141,6 +140,10 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
 </div>
 
 <script>
+// ── Upstash Redis (Vercel KV) 설정 ────────────────────────────────────────────
+const KV_URL   = 'https://merry-ewe-67135.upstash.io';
+const KV_TOKEN = 'gQAAAAAAAQY_AAIgcDE5YTczZTM5MjJjNDk0NjZhYTNlZjNjNGQxN2ExNzNkZg';
+
 // ── 전역 상태 ─────────────────────────────────────────────────────────────────
 let ROADS = [], SEGMENTS = [], cats = [];
 let vis  = new Uint8Array(0);
@@ -150,95 +153,162 @@ let sdkReady  = false, dataReady = false;
 
 const VERSION = new URLSearchParams(window.location.search).get('v');
 
-const COLOR  = {owned:'#27AE60', review:'#F39C12', unowned:'#E74C3C', none:'#888888'};
-const BADGE  = {owned:'b-owned', review:'b-review', unowned:'b-unowned', none:'b-none'};
-const BLABEL = {owned:'보유', review:'확인 필요', unowned:'미보유', none:'미분석'};
+const COLOR  = {owned:'#27AE60', unowned:'#E74C3C', none:'#888888'};
+const SLABEL = {owned:'보유', unowned:'미보유', none:'미검토'};
+
+// ── KV 읽기 ───────────────────────────────────────────────────────────────────
+async function loadStatusFromKV() {
+  try {
+    const resp = await fetch(KV_URL + '/get/' + VERSION + '_status', {
+      headers: { Authorization: 'Bearer ' + KV_TOKEN }
+    });
+    const data = await resp.json();
+    return data.result ? JSON.parse(data.result) : {};
+  } catch(e) { return {}; }
+}
+
+// ── KV 쓰기 ───────────────────────────────────────────────────────────────────
+async function saveStatusToKV() {
+  const statusMap = {};
+  ROADS.forEach(function(r, i) {
+    if (cats[i] && cats[i] !== 'none') statusMap[r.update_id] = cats[i];
+  });
+  try {
+    const resp = await fetch(KV_URL + '/set/' + VERSION + '_status', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + KV_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: JSON.stringify(statusMap) })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    showToast('저장 완료 — 다른 사용자에게도 즉시 반영됩니다');
+  } catch(e) { showToast('저장 실패: ' + e.message); }
+}
 
 // ── 데이터 로드 ───────────────────────────────────────────────────────────────
 async function loadData() {
-  if (!VERSION) {
-    showError('버전이 지정되지 않았습니다.', true);
-    return;
-  }
-
+  if (!VERSION) { showError('버전이 지정되지 않았습니다.', true); return; }
   try {
-    const resp = await fetch('data/' + VERSION + '.json');
+    const [resp, kvStatus] = await Promise.all([
+      fetch('data/' + VERSION + '.json'),
+      loadStatusFromKV()
+    ]);
     if (!resp.ok) throw new Error('버전 데이터를 찾을 수 없습니다 (HTTP ' + resp.status + ')');
     const data = await resp.json();
 
     ROADS    = data.roads    || [];
     SEGMENTS = data.segments || [];
 
-    // 제목 업데이트
     const subtitle = (data.title || ('Routo ' + VERSION)) + (data.date ? ' (' + data.date + ')' : '');
     document.title = '타사 도로 검토 뷰어 — ' + VERSION;
     document.getElementById('sb-subtitle').textContent = subtitle;
 
-    // 카테고리 분류 + 통계
-    const cnt = {owned: 0, review: 0, unowned: 0};
+    // cats 초기화: KV 저장값 우선 → JSON status 참조 → 미검토
     cats = ROADS.map(function(r) {
+      if (kvStatus[r.update_id]) return kvStatus[r.update_id];
       const s = r.status || '';
-      if (s.indexOf('미보유') === 0) { cnt.unowned++; return 'unowned'; }
-      if (s === '확인 필요')          { cnt.review++;  return 'review';  }
-      if (s)                          { cnt.owned++;   return 'owned';   }
+      if (s === '보유'   || s === 'owned')                         return 'owned';
+      if (s === '미보유' || s === 'unowned' || s.startsWith('미보유')) return 'unowned';
       return 'none';
     });
     vis = new Uint8Array(ROADS.length).fill(1);
 
-    // 통계 DOM 업데이트
-    document.getElementById('cnt-all').textContent     = ROADS.length;
-    document.getElementById('cnt-owned').textContent   = cnt.owned;
-    document.getElementById('cnt-review').textContent  = cnt.review;
-    document.getElementById('cnt-unowned').textContent = cnt.unowned;
-
+    updateStats();
     dataReady = true;
     tryInitMap();
+  } catch(e) { showError(e.message, true); }
+}
 
-  } catch (e) {
-    showError(e.message, true);
+// ── 상태 변경 (드롭다운) ─────────────────────────────────────────────────────
+function setStatus(idx, value, event) {
+  if (event) event.stopPropagation();
+  cats[idx] = value || 'none';
+  // 드롭다운 색상 즉시 반영
+  const sel = document.querySelector('[data-idx="' + idx + '"] .status-select');
+  if (sel) {
+    sel.className = 'status-select' + (value ? ' s-' + value : '');
   }
+  // 지도 선 색상도 즉시 반영
+  render();
+  updateStats();
+  if (selIdx === idx) document.getElementById('p-sta').textContent = SLABEL[cats[idx]] || '미검토';
+  applyFilters();
+}
+
+// ── 통계 업데이트 ─────────────────────────────────────────────────────────────
+function updateStats() {
+  const cnt = {owned:0, unowned:0, none:0};
+  cats.forEach(function(c) { if (cnt[c] !== undefined) cnt[c]++; else cnt.none++; });
+  document.getElementById('cnt-all').textContent     = ROADS.length;
+  document.getElementById('cnt-owned').textContent   = cnt.owned;
+  document.getElementById('cnt-unowned').textContent = cnt.unowned;
+  document.getElementById('cnt-none').textContent    = cnt.none;
+}
+
+// ── 내보내기 (JSON 다운로드) ──────────────────────────────────────────────────
+function exportData() {
+  const cnt = {owned:0, unowned:0, none:0};
+  const roadsWithStatus = ROADS.map(function(r, i) {
+    const copy = Object.assign({}, r);
+    copy.status = cats[i] === 'owned' ? '보유' : cats[i] === 'unowned' ? '미보유' : '';
+    if (cnt[cats[i]] !== undefined) cnt[cats[i]]++; else cnt.none++;
+    return copy;
+  });
+  const payload = {
+    version: VERSION,
+    title: document.getElementById('sb-subtitle').textContent,
+    road_count: ROADS.length,
+    owned: cnt.owned, unowned: cnt.unowned,
+    roads: roadsWithStatus, segments: SEGMENTS
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = VERSION + '.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast('JSON 다운로드 완료');
+}
+
+// ── 토스트 알림 ───────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.style.display = 'none'; }, 2800);
 }
 
 function showError(msg, showBack) {
-  const scr = document.getElementById('init-screen');
-  scr.innerHTML = '<div class="init-box"><div class="init-err">' + msg +
-    (showBack ? '<br><br><a href="index.html">← 목록으로 돌아가기</a>' : '') + '</div></div>';
+  document.getElementById('init-screen').innerHTML =
+    '<div class="init-box"><div class="init-err">' + msg +
+    (showBack ? '<br><a href="index.html">← 목록으로 돌아가기</a>' : '') + '</div></div>';
 }
 
 // ── SDK + 데이터 준비 완료 시 지도 초기화 ─────────────────────────────────────
 function tryInitMap() {
   if (!sdkReady || !dataReady) return;
-  // inavi 객체가 아직 준비 안 됐으면 100ms 후 재시도
-  if (typeof inavi === 'undefined' || !inavi.maps) {
-    setTimeout(tryInitMap, 100);
-    return;
-  }
+  if (typeof inavi === 'undefined' || !inavi.maps) { setTimeout(tryInitMap, 100); return; }
   startMapView();
 }
 
 function startMapView() {
   document.getElementById('init-screen').style.display = 'none';
-
   const initCenter = (ROADS.length > 0 && ROADS[0].center) ? ROADS[0].center : [127.0, 37.0];
-  map = new inavi.maps.Map({container: 'map', center: initCenter, zoom: 14}); // eslint-disable-line no-undef
-
+  map = new inavi.maps.Map({container:'map', center:initCenter, zoom:14}); // eslint-disable-line no-undef
   try { map.on('move',  render); }         catch(e) {}
   try { map.on('zoom',  render); }         catch(e) {}
   try { map.on('click', handleMapClick); } catch(e) {}
-
   initCanvas();
   requestAnimationFrame(watchLoop);
-
   setTimeout(render, 200);
-  setTimeout(function() { render(); renderList(); if (ROADS.length > 0) showInfo(0); }, 500);
+  setTimeout(function(){ render(); renderList(); if(ROADS.length>0) showInfo(0); }, 500);
 }
 
-// ── Web Mercator 투영 (iNavi Maps = 512px 타일) ───────────────────────────────
+// ── Web Mercator 투영 ─────────────────────────────────────────────────────────
 function worldPx(lon, lat, zoom) {
   const n = 512 * Math.pow(2, zoom);
   const x = (lon + 180) / 360 * n;
   const s = Math.sin(lat * Math.PI / 180);
-  const y = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n;
+  const y = (0.5 - Math.log((1+s)/(1-s)) / (4*Math.PI)) * n;
   return [x, y];
 }
 
@@ -247,38 +317,33 @@ function render() {
   if (!map) return;
   let center, zoom;
   try { center = map.getCenter(); zoom = map.getZoom(); } catch(e) { return; }
-
   const cx = Array.isArray(center) ? center[0] : (center.lng ?? center.x ?? 127);
   const cy = Array.isArray(center) ? center[1] : (center.lat ?? center.y ?? 37);
   const dpr = window.devicePixelRatio || 1;
-  const W = canvas.width / dpr, H = canvas.height / dpr;
-  const [cpx, cpy] = worldPx(cx, cy, zoom);
-  const [tx, ty]   = getMapTranslate();
-  const ox = cpx - W / 2 + tx, oy = cpy - H / 2 + ty;
+  const W = canvas.width/dpr, H = canvas.height/dpr;
+  const [cpx,cpy] = worldPx(cx,cy,zoom);
+  const [tx,ty]   = getMapTranslate();
+  const ox = cpx-W/2+tx, oy = cpy-H/2+ty;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.save();
-  ctx.scale(dpr, dpr);
-  ctx.lineJoin = 'round';
-  ctx.lineCap  = 'round';
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.save(); ctx.scale(dpr,dpr);
+  ctx.lineJoin='round'; ctx.lineCap='round';
 
-  for (let pass = 0; pass < 2; pass++) {
-    for (let si = 0; si < SEGMENTS.length; si++) {
-      const seg = SEGMENTS[si], path = seg[0], ri = seg[1];
-      const isSel = (ri === selIdx);
-      if (pass === 0 && isSel)  continue;
-      if (pass === 1 && !isSel) continue;
+  for (let pass=0; pass<2; pass++) {
+    for (let si=0; si<SEGMENTS.length; si++) {
+      const seg=SEGMENTS[si], path=seg[0], ri=seg[1];
+      const isSel=(ri===selIdx);
+      if (pass===0&&isSel) continue;
+      if (pass===1&&!isSel) continue;
       if (!vis[ri]) continue;
-
       ctx.beginPath();
-      ctx.strokeStyle = isSel ? '#FF6B00' : COLOR[cats[ri]];
+      ctx.strokeStyle = isSel ? '#FF6B00' : (COLOR[cats[ri]] || '#888');
       ctx.lineWidth   = isSel ? 5 : 3;
       ctx.globalAlpha = isSel ? 1 : 0.85;
-
-      for (let pi = 0; pi < path.length; pi++) {
-        const [wx, wy] = worldPx(path[pi][0], path[pi][1], zoom);
-        const sx = wx - ox, sy = wy - oy;
-        if (pi === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+      for (let pi=0; pi<path.length; pi++) {
+        const [wx,wy] = worldPx(path[pi][0],path[pi][1],zoom);
+        const sx=wx-ox, sy=wy-oy;
+        if(pi===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
       }
       ctx.stroke();
     }
@@ -287,15 +352,14 @@ function render() {
 }
 
 function getMapTranslate() {
-  const mapEl = document.getElementById('map');
-  const t = window.getComputedStyle(mapEl).transform;
-  if (!t || t === 'none') return [0, 0];
+  const t = window.getComputedStyle(document.getElementById('map')).transform;
+  if (!t||t==='none') return [0,0];
   const m = t.match(/matrix(?:3d)?\(([^)]+)\)/);
-  if (!m) return [0, 0];
-  const vals = m[1].split(',').map(Number);
-  if (vals.length === 6)  return [vals[4], vals[5]];
-  if (vals.length === 16) return [vals[12], vals[13]];
-  return [0, 0];
+  if (!m) return [0,0];
+  const v = m[1].split(',').map(Number);
+  if (v.length===6)  return [v[4],v[5]];
+  if (v.length===16) return [v[12],v[13]];
+  return [0,0];
 }
 
 function watchLoop() { render(); requestAnimationFrame(watchLoop); }
@@ -304,9 +368,9 @@ function initCanvas() {
   canvas = document.getElementById('overlay');
   const dpr = window.devicePixelRatio || 1;
   function resize() {
-    const W = window.innerWidth - 320, H = window.innerHeight;
-    canvas.width        = W * dpr; canvas.height       = H * dpr;
-    canvas.style.width  = W + 'px'; canvas.style.height = H + 'px';
+    const W=window.innerWidth-320, H=window.innerHeight;
+    canvas.width=W*dpr; canvas.height=H*dpr;
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
     render();
   }
   ctx = canvas.getContext('2d');
@@ -314,147 +378,132 @@ function initCanvas() {
   window.addEventListener('resize', resize);
 }
 
-// ── 지도 클릭 → 가장 가까운 도로 선택 ────────────────────────────────────────
+// ── 지도 클릭 ─────────────────────────────────────────────────────────────────
 function handleMapClick(e) {
   if (!map) return;
   let lon, lat;
   try {
-    if (e && e.lngLat) {
-      lon = e.lngLat.lng ?? e.lngLat[0]; lat = e.lngLat.lat ?? e.lngLat[1];
-    } else if (e && e.coordinate) {
-      [lon, lat] = Array.isArray(e.coordinate) ? e.coordinate : [e.coordinate.x, e.coordinate.y];
-    } else if (e && e.latLng) {
-      lon = e.latLng.getLng ? e.latLng.getLng() : e.latLng.lng;
-      lat = e.latLng.getLat ? e.latLng.getLat() : e.latLng.lat;
-    }
+    if (e&&e.lngLat)      { lon=e.lngLat.lng??e.lngLat[0]; lat=e.lngLat.lat??e.lngLat[1]; }
+    else if (e&&e.coordinate) { [lon,lat]=Array.isArray(e.coordinate)?e.coordinate:[e.coordinate.x,e.coordinate.y]; }
+    else if (e&&e.latLng) { lon=e.latLng.getLng?e.latLng.getLng():e.latLng.lng; lat=e.latLng.getLat?e.latLng.getLat():e.latLng.lat; }
   } catch(ex) {}
-  if (lon == null) return;
-
-  const zoom = map.getZoom();
-  const threshold = 0.0025 / Math.pow(2, Math.max(0, zoom - 10));
-  let bestDist = threshold, bestRi = -1;
-
-  for (let si = 0; si < SEGMENTS.length; si++) {
-    const seg = SEGMENTS[si], path = seg[0], ri = seg[1];
+  if (lon==null) return;
+  const zoom=map.getZoom();
+  const thr=0.0025/Math.pow(2,Math.max(0,zoom-10));
+  let best=thr, bestRi=-1;
+  for (let si=0; si<SEGMENTS.length; si++) {
+    const seg=SEGMENTS[si], path=seg[0], ri=seg[1];
     if (!vis[ri]) continue;
-    for (let pi = 0; pi < path.length - 1; pi++) {
-      const d = ptSegDistGeo(lon, lat, path[pi][0], path[pi][1], path[pi+1][0], path[pi+1][1]);
-      if (d < bestDist) { bestDist = d; bestRi = ri; }
+    for (let pi=0; pi<path.length-1; pi++) {
+      const d=ptSegDistGeo(lon,lat,path[pi][0],path[pi][1],path[pi+1][0],path[pi+1][1]);
+      if (d<best) { best=d; bestRi=ri; }
     }
   }
-  if (bestRi >= 0) selectRoad(bestRi);
+  if (bestRi>=0) selectRoad(bestRi);
 }
 
-function ptSegDistGeo(px, py, x1, y1, x2, y2) {
-  const dx = x2 - x1, dy = y2 - y1, len2 = dx*dx + dy*dy;
-  if (len2 === 0) return Math.hypot(px - x1, py - y1);
-  const t = Math.max(0, Math.min(1, ((px-x1)*dx + (py-y1)*dy) / len2));
-  return Math.hypot(px - (x1 + t*dx), py - (y1 + t*dy));
+function ptSegDistGeo(px,py,x1,y1,x2,y2) {
+  const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;
+  if(len2===0) return Math.hypot(px-x1,py-y1);
+  const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/len2));
+  return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
 }
 
 // ── 필터 ──────────────────────────────────────────────────────────────────────
 function setFilter(f) {
-  curFilter = f;
-  document.querySelectorAll('.sc').forEach(function(el) {
-    el.className = 'sc';
-    if (el.dataset.f === f) el.classList.add('active-' + f);
+  curFilter=f;
+  document.querySelectorAll('.sc').forEach(function(el){
+    el.className='sc';
+    if(el.dataset.f===f) el.classList.add('active-'+f);
   });
   applyFilters();
 }
 
 function applyFilters() {
-  const q = (document.getElementById('q').value || '').toLowerCase();
-  let changed = false;
-  ROADS.forEach(function(r, i) {
-    const match = (curFilter === 'all' || cats[i] === curFilter)
-      && (!q || (r.update_id||'').toLowerCase().includes(q)
-               || (r.subject||'').toLowerCase().includes(q)
-               || (r.road_type||'').toLowerCase().includes(q)
-               || (r.content||'').toLowerCase().includes(q));
-    const nv = match ? 1 : 0;
-    if (vis[i] !== nv) { vis[i] = nv; changed = true; }
+  const q=(document.getElementById('q').value||'').toLowerCase();
+  let changed=false;
+  ROADS.forEach(function(r,i){
+    const match=(curFilter==='all'||cats[i]===curFilter)
+      &&(!q||(r.update_id||'').toLowerCase().includes(q)
+            ||(r.subject||'').toLowerCase().includes(q)
+            ||(r.road_type||'').toLowerCase().includes(q)
+            ||(r.content||'').toLowerCase().includes(q));
+    const nv=match?1:0;
+    if(vis[i]!==nv){ vis[i]=nv; changed=true; }
   });
-  if (changed) render();
+  if(changed) render();
   renderList();
 }
 
 // ── 목록 렌더링 ───────────────────────────────────────────────────────────────
 function renderList() {
-  const el = document.getElementById('road-list');
-  const items = ROADS.map(function(r, i) { return {r, i, cat: cats[i]}; }).filter(function(x) { return vis[x.i]; });
-  if (!items.length) { el.innerHTML = '<div class="no-result">검색 결과 없음</div>'; return; }
-  el.innerHTML = items.map(function({r, i, cat}) {
-    const meta = [r.road_type || r.drive_type, r.category].filter(Boolean).join(' · ');
-    return '<div class="ri' + (selIdx === i ? ' active' : '') + '" onclick="selectRoad(' + i + ')">' +
-      '<div class="ri-top"><span class="ri-id">' + r.update_id + '</span>' +
-      '<span class="badge ' + BADGE[cat] + '">' + BLABEL[cat] + '</span></div>' +
-      '<div class="ri-sub">' + (r.subject || r.content || '-') + '</div>' +
-      '<div class="ri-meta">' + (meta || '-') + ' · ' + r.seg_count + '개 구간</div>' +
-      '</div>';
+  const el=document.getElementById('road-list');
+  const items=ROADS.map(function(r,i){return{r,i};}).filter(function(x){return vis[x.i];});
+  if(!items.length){ el.innerHTML='<div class="no-result">검색 결과 없음</div>'; return; }
+  el.innerHTML=items.map(function({r,i}){
+    const meta=[r.road_type||r.drive_type,r.category].filter(Boolean).join(' · ');
+    const cat=cats[i];
+    const selCls=cat&&cat!=='none'?' s-'+cat:'';
+    return '<div class="ri'+(selIdx===i?' active':'')+'" data-idx="'+i+'" onclick="selectRoad('+i+')">'+
+      '<div class="ri-top">'+
+        '<span class="ri-id">'+r.update_id+'</span>'+
+        '<select class="status-select'+selCls+'" onchange="setStatus('+i+',this.value,event)" onclick="event.stopPropagation()">'+
+          '<option value=""'        +(cat==='none'   ?'selected':'')+'>미검토</option>'+
+          '<option value="owned"'   +(cat==='owned'  ?'selected':'')+'>보유</option>'+
+          '<option value="unowned"' +(cat==='unowned'?'selected':'')+'>미보유</option>'+
+        '</select>'+
+      '</div>'+
+      '<div class="ri-sub">'+(r.subject||r.content||'-')+'</div>'+
+      '<div class="ri-meta">'+(meta||'-')+' · '+r.seg_count+'개 구간</div>'+
+    '</div>';
   }).join('');
 }
 
 // ── 팝업 ──────────────────────────────────────────────────────────────────────
 function showInfo(idx) {
-  selIdx = idx;
-  const r = ROADS[idx];
-  document.getElementById('p-id').textContent    = r.update_id || '-';
-  document.getElementById('p-sub').textContent   = r.subject   || '-';
-  document.getElementById('p-rtype').textContent = r.road_type || '-';
-  document.getElementById('p-cat').textContent   = r.category  || '-';
-  document.getElementById('p-cnt').textContent   = r.content   || '-';
-  document.getElementById('p-drv').textContent   = r.drive_type|| '-';
-  document.getElementById('p-sta').textContent   = r.status    || '미분석';
-  document.getElementById('p-dst').textContent   = r.avg_dist != null ? r.avg_dist + 'm' : '-';
-  document.getElementById('p-seg').textContent   = r.seg_count + '개';
-  document.getElementById('popup').style.display = 'block';
+  selIdx=idx;
+  const r=ROADS[idx];
+  document.getElementById('p-id').textContent    = r.update_id||'-';
+  document.getElementById('p-sub').textContent   = r.subject  ||'-';
+  document.getElementById('p-rtype').textContent = r.road_type||'-';
+  document.getElementById('p-cat').textContent   = r.category ||'-';
+  document.getElementById('p-cnt').textContent   = r.content  ||'-';
+  document.getElementById('p-drv').textContent   = r.drive_type||'-';
+  document.getElementById('p-sta').textContent   = SLABEL[cats[idx]]||'미검토';
+  document.getElementById('p-seg').textContent   = r.seg_count+'개';
+  document.getElementById('popup').style.display ='block';
   renderList();
-  setTimeout(function() {
-    const a = document.querySelector('.ri.active');
-    if (a) a.scrollIntoView({behavior: 'smooth', block: 'nearest'});
-  }, 60);
+  setTimeout(function(){
+    const a=document.querySelector('.ri.active');
+    if(a) a.scrollIntoView({behavior:'smooth',block:'nearest'});
+  },60);
 }
 
 function selectRoad(idx) {
-  selIdx = idx;
-  const c = ROADS[idx].center;
-  try { map.setCenter(c); map.setZoom(15); } catch(e) {}
-  render();
-  showInfo(idx);
+  selIdx=idx;
+  const c=ROADS[idx].center;
+  try{ map.setCenter(c); map.setZoom(15); }catch(e){}
+  render(); showInfo(idx);
 }
 
-function closePopup() {
-  document.getElementById('popup').style.display = 'none';
-}
+function closePopup(){ document.getElementById('popup').style.display='none'; }
 
 // ── GeoJSON 다운로드 ──────────────────────────────────────────────────────────
 function downloadGeoJSON(idx) {
-  if (idx < 0 || idx >= ROADS.length) return;
-  const r    = ROADS[idx];
-  const segs = SEGMENTS.filter(function(s) { return s[1] === idx; }).map(function(s) { return s[0]; });
-  if (!segs.length) return;
-
-  const geometry = segs.length === 1
-    ? {type: 'LineString', coordinates: segs[0]}
-    : {type: 'MultiLineString', coordinates: segs};
-
-  const fc = {
-    type: 'FeatureCollection',
-    features: [{
-      type: 'Feature', geometry: geometry,
-      properties: {
-        update_id: r.update_id || '', subject:    r.subject    || '',
-        drive_type:r.drive_type|| '', road_type:  r.road_type  || '',
-        category:  r.category  || '', content:    r.content    || '',
-        status:    r.status    || '', avg_dist:   r.avg_dist   != null ? r.avg_dist : ''
-      }
-    }]
-  };
-
-  const blob = new Blob([JSON.stringify(fc, null, 2)], {type: 'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url; a.download = (r.update_id || 'road') + '.geojson';
+  if(idx<0||idx>=ROADS.length) return;
+  const r=ROADS[idx];
+  const segs=SEGMENTS.filter(function(s){return s[1]===idx;}).map(function(s){return s[0];});
+  if(!segs.length) return;
+  const geometry=segs.length===1?{type:'LineString',coordinates:segs[0]}:{type:'MultiLineString',coordinates:segs};
+  const fc={type:'FeatureCollection',features:[{type:'Feature',geometry:geometry,
+    properties:{update_id:r.update_id||'',subject:r.subject||'',
+      drive_type:r.drive_type||'',road_type:r.road_type||'',
+      category:r.category||'',content:r.content||'',
+      status:cats[idx]==='owned'?'보유':cats[idx]==='unowned'?'미보유':''}}]};
+  const blob=new Blob([JSON.stringify(fc,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=(r.update_id||'road')+'.geojson';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
@@ -467,7 +516,6 @@ loadData();
   src="https://imaps.inavi.com/maps/v3.0/appkeys/b7e251f62f62d9050f8dfb01fc656dc5876fb591/maps">
 </script>
 <script>
-  // SDK 스크립트 직후에 실행 — 이 시점에 inavi 전역 객체가 확실히 준비됨
   sdkReady = true;
   tryInitMap();
 </script>
