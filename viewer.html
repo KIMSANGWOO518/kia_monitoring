@@ -208,6 +208,11 @@ function showError(msg, showBack) {
 // ── SDK + 데이터 준비 완료 시 지도 초기화 ─────────────────────────────────────
 function tryInitMap() {
   if (!sdkReady || !dataReady) return;
+  // inavi 객체가 아직 준비 안 됐으면 100ms 후 재시도
+  if (typeof inavi === 'undefined' || !inavi.maps) {
+    setTimeout(tryInitMap, 100);
+    return;
+  }
   startMapView();
 }
 
