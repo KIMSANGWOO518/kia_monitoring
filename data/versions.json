@@ -1,0 +1,22 @@
+{
+  "versions": [
+    {
+      "version": "bcs0IA",
+      "title": "인포테인먼트 2026년 1차 인포테인먼트 업데이트 안내",
+      "date": "2026-05-14",
+      "road_count": 120,
+      "owned": 0,
+      "review": 0,
+      "unowned": 0
+    },
+    {
+      "version": "PbeLS8",
+      "title": "인포테인먼트 2025년 2차 인포테인먼트 업데이트 안내",
+      "date": "2026-01-05",
+      "road_count": 87,
+      "owned": 0,
+      "review": 0,
+      "unowned": 0
+    }
+  ]
+}

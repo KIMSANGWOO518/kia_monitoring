@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>타사 도로 검토 뷰어</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Malgun Gothic',sans-serif;background:#f0f2f5;min-height:100vh}
+header{background:#1B3A5C;color:#fff;padding:18px 32px;display:flex;align-items:center;justify-content:space-between}
+.hd-title h1{font-size:20px;font-weight:700}
+.hd-title p{font-size:12px;opacity:.7;margin-top:3px}
+.hd-count{font-size:12px;opacity:.6}
+.container{max-width:1100px;margin:0 auto;padding:32px 24px}
+.section-title{font-size:13px;font-weight:600;color:#777;text-transform:uppercase;letter-spacing:.04em;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:#fff;border-radius:10px;box-shadow:0 1px 6px rgba(0,0,0,.09);padding:20px;cursor:pointer;transition:.15s;border:2px solid transparent}
+.card:hover{border-color:#1B3A5C;transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.13)}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.version-badge{background:#1B3A5C;color:#fff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;white-space:nowrap;font-family:monospace}
+.card-date{font-size:11px;color:#aaa;margin-top:2px}
+.card-title{font-size:13px;font-weight:600;color:#222;margin-bottom:12px;line-height:1.45}
+.card-stats{display:flex;flex-wrap:wrap;gap:6px}
+.stat{font-size:11px;padding:2px 9px;border-radius:10px;font-weight:600}
+.s-total{background:#e8eaf0;color:#444}
+.s-owned{background:#D4EDDA;color:#155724}
+.s-review{background:#FFF3CD;color:#856404}
+.s-unowned{background:#F8D7DA;color:#721C24}
+.s-none{background:#eee;color:#666}
+.empty{text-align:center;padding:80px 20px;color:#bbb;font-size:14px}
+#loading{text-align:center;padding:80px;color:#aaa;font-size:14px}
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid #ddd;border-top-color:#1B3A5C;border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="hd-title">
+    <h1>타사 도로 검토 뷰어</h1>
+    <p>인포테인먼트 업데이트 버전별 신규도로 현황</p>
+  </div>
+  <div class="hd-count" id="hd-count"></div>
+</header>
+<div class="container">
+  <div class="section-title">업데이트 버전 목록</div>
+  <div id="loading"><span class="spinner"></span>데이터를 불러오는 중…</div>
+  <div class="grid" id="grid" style="display:none"></div>
+  <div class="empty" id="empty" style="display:none">등록된 버전이 없습니다.</div>
+</div>
+
+<script>
+async function loadVersions() {
+  try {
+    const resp = await fetch('/data/versions.json');
+    if (!resp.ok) throw new Error('versions.json 로드 실패');
+    const data = await resp.json();
+    const versions = (data.versions || []).slice().sort((a, b) =>
+      (b.date || '') > (a.date || '') ? 1 : -1
+    );
+
+    document.getElementById('loading').style.display = 'none';
+
+    if (!versions.length) {
+      document.getElementById('empty').style.display = 'block';
+      return;
+    }
+
+    document.getElementById('hd-count').textContent = `총 ${versions.length}개 버전`;
+
+    const grid = document.getElementById('grid');
+    grid.style.display = 'grid';
+    grid.innerHTML = versions.map(v => {
+      const total    = v.road_count || 0;
+      const owned    = v.owned    || 0;
+      const review   = v.review   || 0;
+      const unowned  = v.unowned  || 0;
+      const noneCount = total - owned - review - unowned;
+      return `<div class="card" onclick="location.href='viewer.html?v=${encodeURIComponent(v.version)}'">
+        <div class="card-top">
+          <span class="version-badge">${v.version}</span>
+          <span class="card-date">${v.date || ''}</span>
+        </div>
+        <div class="card-title">${v.title || v.version}</div>
+        <div class="card-stats">
+          <span class="stat s-total">${total}개 도로</span>
+          ${owned   ? `<span class="stat s-owned">보유 ${owned}</span>`       : ''}
+          ${review  ? `<span class="stat s-review">확인필요 ${review}</span>` : ''}
+          ${unowned ? `<span class="stat s-unowned">미보유 ${unowned}</span>` : ''}
+          ${noneCount > 0 ? `<span class="stat s-none">미분석 ${noneCount}</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('loading').innerHTML = `데이터 로드 실패: ${e.message}`;
+  }
+}
+
+loadVersions();
+</script>
+</body>
+</html>

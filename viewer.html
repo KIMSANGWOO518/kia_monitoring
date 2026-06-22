@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>타사 도로 검토 뷰어</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:hidden}
+#sidebar{width:320px;min-width:320px;display:flex;flex-direction:column;background:#fff;box-shadow:2px 0 8px rgba(0,0,0,.12);z-index:10}
+.sb-head{background:#1B3A5C;color:#fff;padding:12px 14px}
+.sb-head-top{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.sb-back{background:none;border:none;color:#fff;opacity:.7;cursor:pointer;font-size:13px;padding:0;line-height:1}
+.sb-back:hover{opacity:1}
+.sb-head h1{font-size:14px;font-weight:700}
+.sb-head p{font-size:10px;opacity:.7;margin-top:2px}
+.stats{display:flex;gap:5px;padding:8px;background:#f7f8fc;border-bottom:1px solid #eee}
+.sc{flex:1;background:#fff;border:2px solid #eee;border-radius:7px;padding:7px 3px;text-align:center;cursor:pointer;transition:.15s}
+.sc:hover{border-color:#aaa}
+.sc.active-all{background:#555;border-color:#555;color:#fff}
+.sc.active-owned{background:#27AE60;border-color:#27AE60;color:#fff}
+.sc.active-review{background:#F39C12;border-color:#F39C12;color:#fff}
+.sc.active-unowned{background:#E74C3C;border-color:#E74C3C;color:#fff}
+.sc-num{font-size:18px;font-weight:700}
+.sc-lbl{font-size:10px;margin-top:1px;opacity:.85}
+.search{padding:6px 8px;border-bottom:1px solid #eee}
+.search input{width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:5px;font-size:12px;outline:none}
+.search input:focus{border-color:#1B3A5C}
+#road-list{flex:1;overflow-y:auto}
+.ri{padding:9px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer;border-left:3px solid transparent}
+.ri:hover{background:#f5f8ff}
+.ri.active{background:#EEF2FF;border-left-color:#1B3A5C}
+.ri-top{display:flex;align-items:center;gap:5px;margin-bottom:2px}
+.ri-id{font-size:12px;font-weight:600;color:#1B3A5C}
+.badge{font-size:10px;padding:1px 6px;border-radius:10px;font-weight:600;white-space:nowrap}
+.b-owned{background:#D4EDDA;color:#155724}
+.b-review{background:#FFF3CD;color:#856404}
+.b-unowned{background:#F8D7DA;color:#721C24}
+.b-none{background:#eee;color:#666}
+.ri-sub{font-size:11px;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ri-meta{font-size:10px;color:#aaa;margin-top:1px}
+.legend{padding:8px 12px;border-top:1px solid #eee;background:#fafafa}
+.lg-title{font-size:10px;color:#888;margin-bottom:4px}
+.lg-items{display:flex;gap:10px;flex-wrap:wrap}
+.lg-item{display:flex;align-items:center;gap:3px;font-size:10px;color:#555}
+.lg-dot{width:12px;height:4px;border-radius:2px}
+#map-wrap{flex:1;position:relative}
+#map{width:100%;height:100%}
+#overlay{position:fixed;top:0;left:320px;right:0;bottom:0;pointer-events:none;z-index:5}
+#popup{position:absolute;top:14px;right:14px;width:270px;background:#fff;border-radius:9px;
+  box-shadow:0 4px 18px rgba(0,0,0,.18);display:none;z-index:200;overflow:hidden}
+.pop-head{background:#1B3A5C;color:#fff;padding:10px 13px;display:flex;align-items:center;justify-content:space-between}
+.pop-head h3{font-size:13px}
+.pop-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;opacity:.8}
+.pop-body{padding:10px 13px}
+.pop-row{display:flex;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:11px}
+.pop-row:last-child{border:none}
+.pop-k{color:#999;width:75px;flex-shrink:0}
+.pop-v{color:#333;font-weight:500;word-break:break-all}
+.no-result{text-align:center;padding:30px;color:#bbb;font-size:12px}
+.pop-dl{display:block;width:100%;margin-top:8px;padding:7px 0;background:#1B3A5C;color:#fff;
+  border:none;border-radius:5px;font-size:12px;cursor:pointer;text-align:center}
+.pop-dl:hover{background:#2a5080}
+/* 로딩/오류 화면 */
+#init-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:#f0f2f5;z-index:999;font-family:'Malgun Gothic',sans-serif}
+.init-box{text-align:center;color:#555}
+.init-spinner{width:32px;height:32px;border:3px solid #ddd;border-top-color:#1B3A5C;
+  border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.init-err{color:#c0392b;font-size:14px}
+.init-err a{color:#1B3A5C}
+</style>
+</head>
+<body>
+
+<!-- 로딩/오류 화면 -->
+<div id="init-screen">
+  <div class="init-box">
+    <div class="init-spinner"></div>
+    <div id="init-msg">데이터를 불러오는 중…</div>
+  </div>
+</div>
+
+<div id="sidebar">
+  <div class="sb-head">
+    <div class="sb-head-top">
+      <button class="sb-back" onclick="location.href='index.html'" title="목록으로">← 목록</button>
+      <h1>타사 도로 검토 뷰어</h1>
+    </div>
+    <p id="sb-subtitle">-</p>
+  </div>
+  <div class="stats">
+    <div class="sc active-all" data-f="all" onclick="setFilter('all')">
+      <div class="sc-num" id="cnt-all">0</div><div class="sc-lbl">전체</div>
+    </div>
+    <div class="sc" data-f="owned" onclick="setFilter('owned')">
+      <div class="sc-num" id="cnt-owned">0</div><div class="sc-lbl">보유</div>
+    </div>
+    <div class="sc" data-f="review" onclick="setFilter('review')">
+      <div class="sc-num" id="cnt-review">0</div><div class="sc-lbl">확인필요</div>
+    </div>
+    <div class="sc" data-f="unowned" onclick="setFilter('unowned')">
+      <div class="sc-num" id="cnt-unowned">0</div><div class="sc-lbl">미보유</div>
+    </div>
+  </div>
+  <div class="search">
+    <input type="text" id="q" placeholder="update_id, 노선명, 구간내용 검색…" oninput="applyFilters()">
+  </div>
+  <div id="road-list"></div>
+  <div class="legend">
+    <div class="lg-title">범례</div>
+    <div class="lg-items">
+      <div class="lg-item"><div class="lg-dot" style="background:#27AE60"></div>보유</div>
+      <div class="lg-item"><div class="lg-dot" style="background:#F39C12"></div>확인 필요</div>
+      <div class="lg-item"><div class="lg-dot" style="background:#E74C3C"></div>미보유</div>
+      <div class="lg-item"><div class="lg-dot" style="background:#888888"></div>미분석</div>
+    </div>
+  </div>
+</div>
+
+<canvas id="overlay"></canvas>
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="popup">
+    <div class="pop-head">
+      <h3 id="p-id">-</h3>
+      <button class="pop-close" onclick="closePopup()">×</button>
+    </div>
+    <div class="pop-body">
+      <div class="pop-row"><span class="pop-k">노선명</span><span class="pop-v" id="p-sub">-</span></div>
+      <div class="pop-row"><span class="pop-k">도로유형</span><span class="pop-v" id="p-rtype">-</span></div>
+      <div class="pop-row"><span class="pop-k">카테고리</span><span class="pop-v" id="p-cat">-</span></div>
+      <div class="pop-row"><span class="pop-k">구간내용</span><span class="pop-v" id="p-cnt">-</span></div>
+      <div class="pop-row"><span class="pop-k">drive_type</span><span class="pop-v" id="p-drv">-</span></div>
+      <div class="pop-row"><span class="pop-k">분류</span><span class="pop-v" id="p-sta">-</span></div>
+      <div class="pop-row"><span class="pop-k">평균 거리</span><span class="pop-v" id="p-dst">-</span></div>
+      <div class="pop-row"><span class="pop-k">구간 수</span><span class="pop-v" id="p-seg">-</span></div>
+      <button class="pop-dl" onclick="downloadGeoJSON(selIdx)">GeoJSON 다운로드</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 전역 상태 ─────────────────────────────────────────────────────────────────
+let ROADS = [], SEGMENTS = [], cats = [];
+let vis  = new Uint8Array(0);
+let map, canvas, ctx;
+let curFilter = 'all', selIdx = -1;
+let sdkReady  = false, dataReady = false;
+
+const VERSION = new URLSearchParams(window.location.search).get('v');
+
+const COLOR  = {owned:'#27AE60', review:'#F39C12', unowned:'#E74C3C', none:'#888888'};
+const BADGE  = {owned:'b-owned', review:'b-review', unowned:'b-unowned', none:'b-none'};
+const BLABEL = {owned:'보유', review:'확인 필요', unowned:'미보유', none:'미분석'};
+
+// ── 데이터 로드 ───────────────────────────────────────────────────────────────
+async function loadData() {
+  if (!VERSION) {
+    showError('버전이 지정되지 않았습니다.', true);
+    return;
+  }
+
+  try {
+    const resp = await fetch('data/' + VERSION + '.json');
+    if (!resp.ok) throw new Error('버전 데이터를 찾을 수 없습니다 (HTTP ' + resp.status + ')');
+    const data = await resp.json();
+
+    ROADS    = data.roads    || [];
+    SEGMENTS = data.segments || [];
+
+    // 제목 업데이트
+    const subtitle = (data.title || ('Routo ' + VERSION)) + (data.date ? ' (' + data.date + ')' : '');
+    document.title = '타사 도로 검토 뷰어 — ' + VERSION;
+    document.getElementById('sb-subtitle').textContent = subtitle;
+
+    // 카테고리 분류 + 통계
+    const cnt = {owned: 0, review: 0, unowned: 0};
+    cats = ROADS.map(function(r) {
+      const s = r.status || '';
+      if (s.indexOf('미보유') === 0) { cnt.unowned++; return 'unowned'; }
+      if (s === '확인 필요')          { cnt.review++;  return 'review';  }
+      if (s)                          { cnt.owned++;   return 'owned';   }
+      return 'none';
+    });
+    vis = new Uint8Array(ROADS.length).fill(1);
+
+    // 통계 DOM 업데이트
+    document.getElementById('cnt-all').textContent     = ROADS.length;
+    document.getElementById('cnt-owned').textContent   = cnt.owned;
+    document.getElementById('cnt-review').textContent  = cnt.review;
+    document.getElementById('cnt-unowned').textContent = cnt.unowned;
+
+    dataReady = true;
+    tryInitMap();
+
+  } catch (e) {
+    showError(e.message, true);
+  }
+}
+
+function showError(msg, showBack) {
+  const scr = document.getElementById('init-screen');
+  scr.innerHTML = '<div class="init-box"><div class="init-err">' + msg +
+    (showBack ? '<br><br><a href="index.html">← 목록으로 돌아가기</a>' : '') + '</div></div>';
+}
+
+// ── SDK + 데이터 준비 완료 시 지도 초기화 ─────────────────────────────────────
+function tryInitMap() {
+  if (!sdkReady || !dataReady) return;
+  document.getElementById('init-screen').style.display = 'none';
+
+  const initCenter = (ROADS.length > 0 && ROADS[0].center) ? ROADS[0].center : [127.0, 37.0];
+  map = new inavi.maps.Map({container: 'map', center: initCenter, zoom: 14});
+
+  try { map.on('move',  render); }         catch(e) {}
+  try { map.on('zoom',  render); }         catch(e) {}
+  try { map.on('click', handleMapClick); } catch(e) {}
+
+  initCanvas();
+  requestAnimationFrame(watchLoop);
+
+  setTimeout(render, 200);
+  setTimeout(function() { render(); renderList(); if (ROADS.length > 0) showInfo(0); }, 500);
+}
+
+// ── Web Mercator 투영 (iNavi Maps = 512px 타일) ───────────────────────────────
+function worldPx(lon, lat, zoom) {
+  const n = 512 * Math.pow(2, zoom);
+  const x = (lon + 180) / 360 * n;
+  const s = Math.sin(lat * Math.PI / 180);
+  const y = (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n;
+  return [x, y];
+}
+
+// ── Canvas 렌더링 ─────────────────────────────────────────────────────────────
+function render() {
+  if (!map) return;
+  let center, zoom;
+  try { center = map.getCenter(); zoom = map.getZoom(); } catch(e) { return; }
+
+  const cx = Array.isArray(center) ? center[0] : (center.lng ?? center.x ?? 127);
+  const cy = Array.isArray(center) ? center[1] : (center.lat ?? center.y ?? 37);
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.width / dpr, H = canvas.height / dpr;
+  const [cpx, cpy] = worldPx(cx, cy, zoom);
+  const [tx, ty]   = getMapTranslate();
+  const ox = cpx - W / 2 + tx, oy = cpy - H / 2 + ty;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  ctx.lineJoin = 'round';
+  ctx.lineCap  = 'round';
+
+  for (let pass = 0; pass < 2; pass++) {
+    for (let si = 0; si < SEGMENTS.length; si++) {
+      const seg = SEGMENTS[si], path = seg[0], ri = seg[1];
+      const isSel = (ri === selIdx);
+      if (pass === 0 && isSel)  continue;
+      if (pass === 1 && !isSel) continue;
+      if (!vis[ri]) continue;
+
+      ctx.beginPath();
+      ctx.strokeStyle = isSel ? '#FF6B00' : COLOR[cats[ri]];
+      ctx.lineWidth   = isSel ? 5 : 3;
+      ctx.globalAlpha = isSel ? 1 : 0.85;
+
+      for (let pi = 0; pi < path.length; pi++) {
+        const [wx, wy] = worldPx(path[pi][0], path[pi][1], zoom);
+        const sx = wx - ox, sy = wy - oy;
+        if (pi === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+      }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function getMapTranslate() {
+  const mapEl = document.getElementById('map');
+  const t = window.getComputedStyle(mapEl).transform;
+  if (!t || t === 'none') return [0, 0];
+  const m = t.match(/matrix(?:3d)?\(([^)]+)\)/);
+  if (!m) return [0, 0];
+  const vals = m[1].split(',').map(Number);
+  if (vals.length === 6)  return [vals[4], vals[5]];
+  if (vals.length === 16) return [vals[12], vals[13]];
+  return [0, 0];
+}
+
+function watchLoop() { render(); requestAnimationFrame(watchLoop); }
+
+function initCanvas() {
+  canvas = document.getElementById('overlay');
+  const dpr = window.devicePixelRatio || 1;
+  function resize() {
+    const W = window.innerWidth - 320, H = window.innerHeight;
+    canvas.width        = W * dpr; canvas.height       = H * dpr;
+    canvas.style.width  = W + 'px'; canvas.style.height = H + 'px';
+    render();
+  }
+  ctx = canvas.getContext('2d');
+  resize();
+  window.addEventListener('resize', resize);
+}
+
+// ── 지도 클릭 → 가장 가까운 도로 선택 ────────────────────────────────────────
+function handleMapClick(e) {
+  if (!map) return;
+  let lon, lat;
+  try {
+    if (e && e.lngLat) {
+      lon = e.lngLat.lng ?? e.lngLat[0]; lat = e.lngLat.lat ?? e.lngLat[1];
+    } else if (e && e.coordinate) {
+      [lon, lat] = Array.isArray(e.coordinate) ? e.coordinate : [e.coordinate.x, e.coordinate.y];
+    } else if (e && e.latLng) {
+      lon = e.latLng.getLng ? e.latLng.getLng() : e.latLng.lng;
+      lat = e.latLng.getLat ? e.latLng.getLat() : e.latLng.lat;
+    }
+  } catch(ex) {}
+  if (lon == null) return;
+
+  const zoom = map.getZoom();
+  const threshold = 0.0025 / Math.pow(2, Math.max(0, zoom - 10));
+  let bestDist = threshold, bestRi = -1;
+
+  for (let si = 0; si < SEGMENTS.length; si++) {
+    const seg = SEGMENTS[si], path = seg[0], ri = seg[1];
+    if (!vis[ri]) continue;
+    for (let pi = 0; pi < path.length - 1; pi++) {
+      const d = ptSegDistGeo(lon, lat, path[pi][0], path[pi][1], path[pi+1][0], path[pi+1][1]);
+      if (d < bestDist) { bestDist = d; bestRi = ri; }
+    }
+  }
+  if (bestRi >= 0) selectRoad(bestRi);
+}
+
+function ptSegDistGeo(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, len2 = dx*dx + dy*dy;
+  if (len2 === 0) return Math.hypot(px - x1, py - y1);
+  const t = Math.max(0, Math.min(1, ((px-x1)*dx + (py-y1)*dy) / len2));
+  return Math.hypot(px - (x1 + t*dx), py - (y1 + t*dy));
+}
+
+// ── 필터 ──────────────────────────────────────────────────────────────────────
+function setFilter(f) {
+  curFilter = f;
+  document.querySelectorAll('.sc').forEach(function(el) {
+    el.className = 'sc';
+    if (el.dataset.f === f) el.classList.add('active-' + f);
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = (document.getElementById('q').value || '').toLowerCase();
+  let changed = false;
+  ROADS.forEach(function(r, i) {
+    const match = (curFilter === 'all' || cats[i] === curFilter)
+      && (!q || (r.update_id||'').toLowerCase().includes(q)
+               || (r.subject||'').toLowerCase().includes(q)
+               || (r.road_type||'').toLowerCase().includes(q)
+               || (r.content||'').toLowerCase().includes(q));
+    const nv = match ? 1 : 0;
+    if (vis[i] !== nv) { vis[i] = nv; changed = true; }
+  });
+  if (changed) render();
+  renderList();
+}
+
+// ── 목록 렌더링 ───────────────────────────────────────────────────────────────
+function renderList() {
+  const el = document.getElementById('road-list');
+  const items = ROADS.map(function(r, i) { return {r, i, cat: cats[i]}; }).filter(function(x) { return vis[x.i]; });
+  if (!items.length) { el.innerHTML = '<div class="no-result">검색 결과 없음</div>'; return; }
+  el.innerHTML = items.map(function({r, i, cat}) {
+    const meta = [r.road_type || r.drive_type, r.category].filter(Boolean).join(' · ');
+    return '<div class="ri' + (selIdx === i ? ' active' : '') + '" onclick="selectRoad(' + i + ')">' +
+      '<div class="ri-top"><span class="ri-id">' + r.update_id + '</span>' +
+      '<span class="badge ' + BADGE[cat] + '">' + BLABEL[cat] + '</span></div>' +
+      '<div class="ri-sub">' + (r.subject || r.content || '-') + '</div>' +
+      '<div class="ri-meta">' + (meta || '-') + ' · ' + r.seg_count + '개 구간</div>' +
+      '</div>';
+  }).join('');
+}
+
+// ── 팝업 ──────────────────────────────────────────────────────────────────────
+function showInfo(idx) {
+  selIdx = idx;
+  const r = ROADS[idx];
+  document.getElementById('p-id').textContent    = r.update_id || '-';
+  document.getElementById('p-sub').textContent   = r.subject   || '-';
+  document.getElementById('p-rtype').textContent = r.road_type || '-';
+  document.getElementById('p-cat').textContent   = r.category  || '-';
+  document.getElementById('p-cnt').textContent   = r.content   || '-';
+  document.getElementById('p-drv').textContent   = r.drive_type|| '-';
+  document.getElementById('p-sta').textContent   = r.status    || '미분석';
+  document.getElementById('p-dst').textContent   = r.avg_dist != null ? r.avg_dist + 'm' : '-';
+  document.getElementById('p-seg').textContent   = r.seg_count + '개';
+  document.getElementById('popup').style.display = 'block';
+  renderList();
+  setTimeout(function() {
+    const a = document.querySelector('.ri.active');
+    if (a) a.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  }, 60);
+}
+
+function selectRoad(idx) {
+  selIdx = idx;
+  const c = ROADS[idx].center;
+  try { map.setCenter(c); map.setZoom(15); } catch(e) {}
+  render();
+  showInfo(idx);
+}
+
+function closePopup() {
+  document.getElementById('popup').style.display = 'none';
+}
+
+// ── GeoJSON 다운로드 ──────────────────────────────────────────────────────────
+function downloadGeoJSON(idx) {
+  if (idx < 0 || idx >= ROADS.length) return;
+  const r    = ROADS[idx];
+  const segs = SEGMENTS.filter(function(s) { return s[1] === idx; }).map(function(s) { return s[0]; });
+  if (!segs.length) return;
+
+  const geometry = segs.length === 1
+    ? {type: 'LineString', coordinates: segs[0]}
+    : {type: 'MultiLineString', coordinates: segs};
+
+  const fc = {
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature', geometry: geometry,
+      properties: {
+        update_id: r.update_id || '', subject:    r.subject    || '',
+        drive_type:r.drive_type|| '', road_type:  r.road_type  || '',
+        category:  r.category  || '', content:    r.content    || '',
+        status:    r.status    || '', avg_dist:   r.avg_dist   != null ? r.avg_dist : ''
+      }
+    }]
+  };
+
+  const blob = new Blob([JSON.stringify(fc, null, 2)], {type: 'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = (r.update_id || 'road') + '.geojson';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ── SDK onload 콜백 ───────────────────────────────────────────────────────────
+function onInaviSDKReady() {
+  sdkReady = true;
+  tryInitMap();
+}
+
+// 데이터 로드 시작
+loadData();
+</script>
+
+<script type="text/javascript"
+  src="https://imaps.inavi.com/maps/v3.0/appkeys/b7e251f62f62d9050f8dfb01fc656dc5876fb591/maps"
+  onload="onInaviSDKReady()">
+</script>
+</body>
+</html>
