@@ -244,29 +244,40 @@ function updateStats() {
   document.getElementById('cnt-none').textContent    = cnt.none;
 }
 
-// ── 내보내기 (JSON 다운로드) ──────────────────────────────────────────────────
+// ── 내보내기 (현재 필터 기준으로 JSON 다운로드) ───────────────────────────────
 function exportData() {
-  const cnt = {owned:0, unowned:0, none:0};
-  const roadsWithStatus = ROADS.map(function(r, i) {
-    const copy = Object.assign({}, r);
-    copy.status = cats[i] === 'owned' ? '보유' : cats[i] === 'unowned' ? '미보유' : '';
-    if (cnt[cats[i]] !== undefined) cnt[cats[i]]++; else cnt.none++;
+  // 현재 선택된 필터(전체/보유/미보유/미검토) 기준으로 대상 도로 추출
+  const filtered = ROADS.map(function(r, i){ return {r, i}; })
+    .filter(function(x){ return curFilter === 'all' || cats[x.i] === curFilter; });
+
+  const roadsOut = filtered.map(function(x) {
+    const copy = Object.assign({}, x.r);
+    copy.status = cats[x.i] === 'owned' ? '보유' : cats[x.i] === 'unowned' ? '미보유' : '';
     return copy;
   });
+
+  // 해당 도로들의 구간만 포함
+  const roadIdxSet = new Set(filtered.map(function(x){ return x.i; }));
+  const segsOut = SEGMENTS.filter(function(s){ return roadIdxSet.has(s[1]); });
+
+  const filterLabel = {all:'전체', owned:'보유', unowned:'미보유', none:'미검토'};
   const payload = {
     version: VERSION,
     title: document.getElementById('sb-subtitle').textContent,
-    road_count: ROADS.length,
-    owned: cnt.owned, unowned: cnt.unowned,
-    roads: roadsWithStatus, segments: SEGMENTS
+    filter: filterLabel[curFilter] || curFilter,
+    road_count: roadsOut.length,
+    roads: roadsOut,
+    segments: segsOut
   };
+
+  const suffix = curFilter === 'all' ? '' : ('_' + filterLabel[curFilter]);
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = VERSION + '.json';
+  a.href = url; a.download = VERSION + suffix + '.json';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
-  showToast('JSON 다운로드 완료');
+  showToast((filterLabel[curFilter] || '전체') + ' ' + roadsOut.length + '개 도로 다운로드 완료');
 }
 
 // ── 토스트 알림 ───────────────────────────────────────────────────────────────
