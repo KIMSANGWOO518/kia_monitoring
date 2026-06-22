@@ -208,10 +208,14 @@ function showError(msg, showBack) {
 // ── SDK + 데이터 준비 완료 시 지도 초기화 ─────────────────────────────────────
 function tryInitMap() {
   if (!sdkReady || !dataReady) return;
+  startMapView();
+}
+
+function startMapView() {
   document.getElementById('init-screen').style.display = 'none';
 
   const initCenter = (ROADS.length > 0 && ROADS[0].center) ? ROADS[0].center : [127.0, 37.0];
-  map = new inavi.maps.Map({container: 'map', center: initCenter, zoom: 14});
+  map = new inavi.maps.Map({container: 'map', center: initCenter, zoom: 14}); // eslint-disable-line no-undef
 
   try { map.on('move',  render); }         catch(e) {}
   try { map.on('zoom',  render); }         catch(e) {}
@@ -450,19 +454,17 @@ function downloadGeoJSON(idx) {
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
-// ── SDK onload 콜백 ───────────────────────────────────────────────────────────
-function onInaviSDKReady() {
-  sdkReady = true;
-  tryInitMap();
-}
-
 // 데이터 로드 시작
 loadData();
 </script>
 
 <script type="text/javascript"
-  src="https://imaps.inavi.com/maps/v3.0/appkeys/b7e251f62f62d9050f8dfb01fc656dc5876fb591/maps"
-  onload="onInaviSDKReady()">
+  src="https://imaps.inavi.com/maps/v3.0/appkeys/b7e251f62f62d9050f8dfb01fc656dc5876fb591/maps">
+</script>
+<script>
+  // SDK 스크립트 직후에 실행 — 이 시점에 inavi 전역 객체가 확실히 준비됨
+  sdkReady = true;
+  tryInitMap();
 </script>
 </body>
 </html>
