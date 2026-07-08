@@ -140,10 +140,6 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
 </div>
 
 <script>
-// ── Upstash Redis (Vercel KV) 설정 ────────────────────────────────────────────
-const KV_URL   = 'https://merry-ewe-67135.upstash.io';
-const KV_TOKEN = 'gQAAAAAAAQY_AAIgcDE5YTczZTM5MjJjNDk0NjZhYTNlZjNjNGQxN2ExNzNkZg';
-
 // ── 전역 상태 ─────────────────────────────────────────────────────────────────
 let ROADS = [], SEGMENTS = [], cats = [];
 let vis  = new Uint8Array(0);
@@ -159,9 +155,7 @@ const SLABEL = {owned:'보유', unowned:'미보유', none:'미검토'};
 // ── KV 읽기 ───────────────────────────────────────────────────────────────────
 async function loadStatusFromKV() {
   try {
-    const resp = await fetch(KV_URL + '/get/' + VERSION + '_status', {
-      headers: { Authorization: 'Bearer ' + KV_TOKEN }
-    });
+    const resp = await fetch('/api/status?version=' + encodeURIComponent(VERSION));
     const data = await resp.json();
     return data.result ? JSON.parse(data.result) : {};
   } catch(e) { return {}; }
@@ -174,10 +168,10 @@ async function saveStatusToKV() {
     if (cats[i] && cats[i] !== 'none') statusMap[r.update_id] = cats[i];
   });
   try {
-    const resp = await fetch(KV_URL + '/set/' + VERSION + '_status', {
+    const resp = await fetch('/api/status?version=' + encodeURIComponent(VERSION), {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + KV_TOKEN },
-      body: JSON.stringify(statusMap)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: statusMap })
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     showToast('저장 완료 — 다른 사용자에게도 즉시 반영됩니다');

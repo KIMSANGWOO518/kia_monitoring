@@ -48,14 +48,9 @@ header{background:#1B3A5C;color:#fff;padding:18px 32px;display:flex;align-items:
 </div>
 
 <script>
-const KV_URL   = 'https://merry-ewe-67135.upstash.io';
-const KV_TOKEN = 'gQAAAAAAAQY_AAIgcDE5YTczZTM5MjJjNDk0NjZhYTNlZjNjNGQxN2ExNzNkZg';
-
 async function getKVStatus(version) {
   try {
-    const resp = await fetch(KV_URL + '/get/' + version + '_status', {
-      headers: { Authorization: 'Bearer ' + KV_TOKEN }
-    });
+    const resp = await fetch('/api/status?version=' + encodeURIComponent(version));
     const data = await resp.json();
     return data.result ? JSON.parse(data.result) : {};
   } catch(e) { return {}; }
