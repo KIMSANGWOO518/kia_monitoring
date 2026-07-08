@@ -176,8 +176,8 @@ async function saveStatusToKV() {
   try {
     const resp = await fetch(KV_URL + '/set/' + VERSION + '_status', {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + KV_TOKEN, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: JSON.stringify(statusMap) })
+      headers: { Authorization: 'Bearer ' + KV_TOKEN },
+      body: JSON.stringify(statusMap)
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     showToast('저장 완료 — 다른 사용자에게도 즉시 반영됩니다');
