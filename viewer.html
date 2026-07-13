@@ -48,7 +48,7 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
 #popup{position:absolute;top:14px;right:14px;width:270px;background:#fff;border-radius:9px;
   box-shadow:0 4px 18px rgba(0,0,0,.18);display:none;z-index:200;overflow:hidden}
 .pop-head{background:#1B3A5C;color:#fff;padding:10px 13px;display:flex;align-items:center;justify-content:space-between}
-.pop-head h3{font-size:13px}
+.pop-head h3{font-size:13px;line-height:1.4;word-break:keep-all}
 .pop-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;opacity:.8}
 .pop-body{padding:10px 13px}
 .pop-row{display:flex;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:11px}
@@ -130,7 +130,7 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
       <div class="pop-row"><span class="pop-k">노선명</span><span class="pop-v" id="p-sub">-</span></div>
       <div class="pop-row"><span class="pop-k">도로유형</span><span class="pop-v" id="p-rtype">-</span></div>
       <div class="pop-row"><span class="pop-k">카테고리</span><span class="pop-v" id="p-cat">-</span></div>
-      <div class="pop-row"><span class="pop-k">구간내용</span><span class="pop-v" id="p-cnt">-</span></div>
+      <div class="pop-row"><span class="pop-k">항목코드</span><span class="pop-v" id="p-cnt">-</span></div>
       <div class="pop-row"><span class="pop-k">drive_type</span><span class="pop-v" id="p-drv">-</span></div>
       <div class="pop-row"><span class="pop-k">검토결과</span><span class="pop-v" id="p-sta">미검토</span></div>
       <div class="pop-row"><span class="pop-k">구간 수</span><span class="pop-v" id="p-seg">-</span></div>
@@ -451,14 +451,14 @@ function renderList() {
     const selCls=cat&&cat!=='none'?' s-'+cat:'';
     return '<div class="ri'+(selIdx===i?' active':'')+'" data-idx="'+i+'" onclick="selectRoad('+i+')">'+
       '<div class="ri-top">'+
-        '<span class="ri-id">'+r.update_id+'</span>'+
+        '<span class="ri-id" title="'+(r.content||'')+'">'+(r.content||r.update_id||'-')+'</span>'+
         '<select class="status-select'+selCls+'" onchange="setStatus('+i+',this.value,event)" onclick="event.stopPropagation()">'+
           '<option value=""'        +(cat==='none'   ?'selected':'')+'>미검토</option>'+
           '<option value="owned"'   +(cat==='owned'  ?'selected':'')+'>보유</option>'+
           '<option value="unowned"' +(cat==='unowned'?'selected':'')+'>미보유</option>'+
         '</select>'+
       '</div>'+
-      '<div class="ri-sub">'+(r.subject||r.content||'-')+'</div>'+
+      '<div class="ri-sub">'+(r.update_id||'-')+(r.subject?' · '+r.subject:'')+'</div>'+
       '<div class="ri-meta">'+(meta||'-')+' · '+r.seg_count+'개 구간</div>'+
     '</div>';
   }).join('');
@@ -468,11 +468,11 @@ function renderList() {
 function showInfo(idx) {
   selIdx=idx;
   const r=ROADS[idx];
-  document.getElementById('p-id').textContent    = r.update_id||'-';
+  document.getElementById('p-id').textContent    = r.content  ||r.update_id||'-';
   document.getElementById('p-sub').textContent   = r.subject  ||'-';
   document.getElementById('p-rtype').textContent = r.road_type||'-';
   document.getElementById('p-cat').textContent   = r.category ||'-';
-  document.getElementById('p-cnt').textContent   = r.content  ||'-';
+  document.getElementById('p-cnt').textContent   = r.update_id||'-';
   document.getElementById('p-drv').textContent   = r.drive_type||'-';
   document.getElementById('p-sta').textContent   = SLABEL[cats[idx]]||'미검토';
   document.getElementById('p-seg').textContent   = r.seg_count+'개';
