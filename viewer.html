@@ -436,7 +436,7 @@ function render() {
       if (pass===1&&!isSel) continue;
       if (!vis[ri]) continue;
       ctx.beginPath();
-      ctx.strokeStyle = isSel ? '#FF6B00' : (COLOR[cats[ri]] || '#888');
+      ctx.strokeStyle = isSel ? '#8B00FF' : (COLOR[cats[ri]] || '#888');
       ctx.lineWidth   = isSel ? 5 : 3;
       ctx.globalAlpha = isSel ? 1 : 0.85;
       for (let pi=0; pi<path.length; pi++) {
