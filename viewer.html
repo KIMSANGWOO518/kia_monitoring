@@ -270,6 +270,16 @@ function getFilteredRoads() {
     .filter(function(x){ return curFilter === 'all' || cats[x.i] === curFilter; });
 }
 
+// 내보내기 파일명: 공지 제목에서 "인포테인먼트 업데이트 안내" 꼬리를 제거 (예: "인포테인먼트 2025년 2차")
+function exportBaseName() {
+  let base = (NOTICE_TITLE || '')
+    .replace(/\s*인포테인먼트\s*업데이트\s*안내\s*$/, '')
+    .replace(/\s*업데이트\s*안내\s*$/, '')
+    .replace(/[\\/:*?"<>|]/g, '')
+    .trim();
+  return base || VERSION;
+}
+
 // ── 내보내기 (현재 필터 기준으로 JSON 다운로드) ───────────────────────────────
 function exportData() {
   closeExportMenu();
@@ -299,7 +309,7 @@ function exportData() {
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href = url; a.download = VERSION + suffix + '.json';
+  a.href = url; a.download = exportBaseName() + suffix + '.json';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
   showToast((filterLabel[curFilter] || '전체') + ' ' + roadsOut.length + '개 도로 다운로드 완료');
@@ -351,15 +361,8 @@ function exportXLSX() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
 
-  // 파일명: 공지 제목에서 "인포테인먼트 업데이트 안내" 꼬리를 제거 (예: "인포테인먼트 2025년 2차")
-  let base = (NOTICE_TITLE || '')
-    .replace(/\s*인포테인먼트\s*업데이트\s*안내\s*$/, '')
-    .replace(/\s*업데이트\s*안내\s*$/, '')
-    .replace(/[\\/:*?"<>|]/g, '')
-    .trim();
-  if (!base) base = VERSION;
   const suffix = curFilter === 'all' ? '' : ('_' + filterLabel[curFilter]);
-  XLSX.writeFile(wb, base + suffix + '.xlsx');
+  XLSX.writeFile(wb, exportBaseName() + suffix + '.xlsx');
   showToast((filterLabel[curFilter] || '전체') + ' ' + filtered.length + '개 도로 Excel 다운로드 완료');
 }
 
