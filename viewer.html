@@ -285,15 +285,18 @@ function exportData() {
   closeExportMenu();
   const filtered = getFilteredRoads();
 
+  // 도로 인덱스별 구간 좌표 모음 (각 도로 객체 안에 직접 넣기 위함)
+  const segsByRoad = {};
+  SEGMENTS.forEach(function(s){
+    (segsByRoad[s[1]] = segsByRoad[s[1]] || []).push(s[0]);
+  });
+
   const roadsOut = filtered.map(function(x) {
     const copy = Object.assign({}, x.r);
     copy.status = cats[x.i] === 'owned' ? '보유' : cats[x.i] === 'unowned' ? '미보유' : '';
+    copy.segments = segsByRoad[x.i] || [];  // 이 도로의 구간 좌표 목록 [[lon,lat],...]
     return copy;
   });
-
-  // 해당 도로들의 구간만 포함
-  const roadIdxSet = new Set(filtered.map(function(x){ return x.i; }));
-  const segsOut = SEGMENTS.filter(function(s){ return roadIdxSet.has(s[1]); });
 
   const filterLabel = {all:'전체', owned:'보유', unowned:'미보유', none:'미검토'};
   const payload = {
@@ -301,8 +304,7 @@ function exportData() {
     title: document.getElementById('sb-subtitle').textContent,
     filter: filterLabel[curFilter] || curFilter,
     road_count: roadsOut.length,
-    roads: roadsOut,
-    segments: segsOut
+    roads: roadsOut
   };
 
   const suffix = curFilter === 'all' ? '' : ('_' + filterLabel[curFilter]);
