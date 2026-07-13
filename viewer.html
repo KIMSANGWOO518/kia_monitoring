@@ -27,6 +27,12 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
 .btn-save:hover{background:#2a5080}
 .btn-export{padding:6px 10px;background:#fff;color:#555;border:1px solid #ccc;border-radius:5px;font-size:11px;cursor:pointer;font-family:inherit}
 .btn-export:hover{background:#f5f5f5}
+.export-wrap{position:relative}
+#export-menu{display:none;position:absolute;top:calc(100% + 4px);right:0;background:#fff;border:1px solid #ddd;
+  border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.15);z-index:300;min-width:150px;overflow:hidden}
+#export-menu button{display:block;width:100%;padding:9px 12px;background:none;border:none;text-align:left;
+  font-size:11px;cursor:pointer;font-family:inherit;color:#333}
+#export-menu button:hover{background:#f0f4ff}
 .search{padding:6px 8px;border-bottom:1px solid #eee}
 .search input{width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:5px;font-size:12px;outline:none}
 .search input:focus{border-color:#1B3A5C}
@@ -109,7 +115,13 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
 
   <div class="save-bar">
     <button class="btn-save" onclick="saveStatusToKV()">저장 (공유)</button>
-    <button class="btn-export" onclick="exportData()">내보내기</button>
+    <div class="export-wrap">
+      <button class="btn-export" onclick="toggleExportMenu(event)">내보내기 ▾</button>
+      <div id="export-menu">
+        <button onclick="exportData()">JSON 파일 (.json)</button>
+        <button onclick="exportXLSX()">Excel 파일 (.xlsx)</button>
+      </div>
+    </div>
   </div>
 
   <div class="search">
@@ -238,11 +250,28 @@ function updateStats() {
   document.getElementById('cnt-none').textContent    = cnt.none;
 }
 
+// ── 내보내기 메뉴 ─────────────────────────────────────────────────────────────
+function toggleExportMenu(e) {
+  e.stopPropagation();
+  const m = document.getElementById('export-menu');
+  m.style.display = m.style.display === 'block' ? 'none' : 'block';
+}
+function closeExportMenu() {
+  const m = document.getElementById('export-menu');
+  if (m) m.style.display = 'none';
+}
+document.addEventListener('click', closeExportMenu);
+
+// 현재 선택된 필터(전체/보유/미보유/미검토) 기준으로 대상 도로 추출
+function getFilteredRoads() {
+  return ROADS.map(function(r, i){ return {r, i}; })
+    .filter(function(x){ return curFilter === 'all' || cats[x.i] === curFilter; });
+}
+
 // ── 내보내기 (현재 필터 기준으로 JSON 다운로드) ───────────────────────────────
 function exportData() {
-  // 현재 선택된 필터(전체/보유/미보유/미검토) 기준으로 대상 도로 추출
-  const filtered = ROADS.map(function(r, i){ return {r, i}; })
-    .filter(function(x){ return curFilter === 'all' || cats[x.i] === curFilter; });
+  closeExportMenu();
+  const filtered = getFilteredRoads();
 
   const roadsOut = filtered.map(function(x) {
     const copy = Object.assign({}, x.r);
@@ -272,6 +301,57 @@ function exportData() {
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
   showToast((filterLabel[curFilter] || '전체') + ' ' + roadsOut.length + '개 도로 다운로드 완료');
+}
+
+// ── 내보내기 (현재 필터 기준으로 XLSX 다운로드) ───────────────────────────────
+// content 예: "경상북도 포항시 포항영덕고속도로 노선 신규 전체개통"
+//   → 시:경상북도 / 군:포항시 / 노선명:포항영덕고속도로 / 내용:포항영덕고속도로 노선 신규 전체개통
+function parseContentParts(content) {
+  const t = (content || '').replace(/\u00a0/g, ' ').trim().split(/\s+/).filter(Boolean);
+  return {
+    si:    t.length > 0 ? t[0] : '',
+    gun:   t.length > 1 ? t[1] : '',
+    route: t.length > 2 ? t[2] : '',
+    body:  t.length > 2 ? t.slice(2).join(' ') : ''
+  };
+}
+
+function exportXLSX() {
+  closeExportMenu();
+  if (typeof XLSX === 'undefined') {
+    showToast('엑셀 라이브러리를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.');
+    return;
+  }
+  const filtered = getFilteredRoads();
+  const filterLabel = {all:'전체', owned:'보유', unowned:'미보유', none:'미검토'};
+
+  const aoa = [
+    [null, '현대기아업데이트', null, null, null, null, null, '아이나비', null, null, null, null],
+    ['순번', '신규/수정', '시', '군', '도로종', '노선명', '내용', '반영여부', '업데이트(PND/AIR)', null, '비고', '좌표']
+  ];
+  filtered.forEach(function(x, n) {
+    const r = x.r;
+    const p = parseContentParts(r.content);
+    const coord = Array.isArray(r.center) ? r.center.join(', ') : '';
+    aoa.push([n + 1, r.category || '', p.si, p.gun, r.road_type || '', p.route, p.body, '', '', null, '', coord]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = [
+    XLSX.utils.decode_range('B1:G1'),
+    XLSX.utils.decode_range('H1:K1'),
+    XLSX.utils.decode_range('I2:J2')
+  ];
+  ws['!cols'] = [
+    {wch:3.875}, {wch:13}, {wch:15}, {wch:9}, {wch:14.625}, {wch:15.875},
+    {wch:50.75}, {wch:9}, {wch:9.875}, {wch:9.375}, {wch:20}, {wch:23}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+
+  const suffix = curFilter === 'all' ? '' : ('_' + filterLabel[curFilter]);
+  XLSX.writeFile(wb, VERSION + suffix + '.xlsx');
+  showToast((filterLabel[curFilter] || '전체') + ' ' + filtered.length + '개 도로 Excel 다운로드 완료');
 }
 
 // ── 토스트 알림 ───────────────────────────────────────────────────────────────
@@ -517,6 +597,7 @@ function downloadGeoJSON(idx) {
 loadData();
 </script>
 
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script type="text/javascript"
   src="https://imaps.inavi.com/maps/v3.0/appkeys/b7e251f62f62d9050f8dfb01fc656dc5876fb591/maps">
 </script>
