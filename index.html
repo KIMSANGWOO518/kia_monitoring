@@ -56,6 +56,36 @@ async function getKVStatus(version) {
   } catch(e) { return {}; }
 }
 
+// viewer.html의 cats 계산과 동일한 규칙: KV 저장값(수동 리뷰) 우선 → JSON status(AI 분류) → 확인대상
+async function getVersionCounts(v) {
+  try {
+    const [dataResp, kv] = await Promise.all([
+      fetch('data/' + encodeURIComponent(v.version) + '.json'),
+      getKVStatus(v.version)
+    ]);
+    if (!dataResp.ok) throw new Error('버전 데이터 로드 실패');
+    const data = await dataResp.json();
+    const roads = data.roads || [];
+
+    const cnt = { owned: 0, unowned: 0, none: 0 };
+    roads.forEach(function(r) {
+      let cat = kv[r.update_id];
+      if (!cat) {
+        const s = r.status || '';
+        if (s === '보유' || s === 'owned') cat = 'owned';
+        else if (s === '미보유' || s === 'unowned' || s.startsWith('미보유')) cat = 'unowned';
+        else cat = 'none';
+      }
+      if (cnt[cat] !== undefined) cnt[cat]++; else cnt.none++;
+    });
+
+    return { total: roads.length, owned: cnt.owned, unowned: cnt.unowned, review: cnt.none };
+  } catch(e) {
+    // 버전 데이터를 못 읽으면 versions.json에 저장된 값으로 폴백
+    return { total: v.road_count || 0, owned: v.owned || 0, unowned: v.unowned || 0, review: v.review || 0 };
+  }
+}
+
 async function loadVersions() {
   try {
     const resp = await fetch('/data/versions.json');
@@ -65,26 +95,22 @@ async function loadVersions() {
       (b.date || '') > (a.date || '') ? 1 : -1
     );
 
-    document.getElementById('loading').style.display = 'none';
-
     if (!versions.length) {
+      document.getElementById('loading').style.display = 'none';
       document.getElementById('empty').style.display = 'block';
       return;
     }
 
     document.getElementById('hd-count').textContent = `총 ${versions.length}개 버전`;
 
-    // KV에서 각 버전의 상태를 병렬로 로드
-    const kvStatuses = await Promise.all(versions.map(v => getKVStatus(v.version)));
+    // 버전별 도로 데이터 + KV(수동 리뷰 결과)를 병합한 실제 최신 카운트를 병렬로 계산
+    const counts = await Promise.all(versions.map(getVersionCounts));
 
+    document.getElementById('loading').style.display = 'none';
     const grid = document.getElementById('grid');
     grid.style.display = 'grid';
     grid.innerHTML = versions.map((v, vi) => {
-      const total   = v.road_count || 0;
-      const kv      = kvStatuses[vi];
-      const owned   = Object.values(kv).filter(s => s === 'owned').length;
-      const unowned = Object.values(kv).filter(s => s === 'unowned').length;
-      const none    = total - owned - unowned;
+      const { total, owned, unowned, review } = counts[vi];
       return `<div class="card" onclick="location.href='viewer.html?v=${encodeURIComponent(v.version)}'">
         <div class="card-top">
           <span class="version-badge">${v.version}</span>
@@ -95,7 +121,7 @@ async function loadVersions() {
           <span class="stat s-total">${total}개 도로</span>
           ${owned   ? `<span class="stat s-owned">보유 ${owned}</span>`       : ''}
           ${unowned ? `<span class="stat s-unowned">미보유 ${unowned}</span>` : ''}
-          ${none > 0 ? `<span class="stat s-none">확인대상 ${none}</span>` : ''}
+          ${review > 0 ? `<span class="stat s-none">확인대상 ${review}</span>` : ''}
         </div>
       </div>`;
     }).join('');
