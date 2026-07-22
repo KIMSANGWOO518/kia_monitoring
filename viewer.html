@@ -109,7 +109,7 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
       <div class="sc-num" id="cnt-unowned">0</div><div class="sc-lbl">미보유</div>
     </div>
     <div class="sc" data-f="none" onclick="setFilter('none')">
-      <div class="sc-num" id="cnt-none">0</div><div class="sc-lbl">미검토</div>
+      <div class="sc-num" id="cnt-none">0</div><div class="sc-lbl">확인대상</div>
     </div>
   </div>
 
@@ -144,7 +144,7 @@ body{display:flex;height:100vh;font-family:'Malgun Gothic',sans-serif;overflow:h
       <div class="pop-row"><span class="pop-k">카테고리</span><span class="pop-v" id="p-cat">-</span></div>
       <div class="pop-row"><span class="pop-k">항목코드</span><span class="pop-v" id="p-cnt">-</span></div>
       <div class="pop-row"><span class="pop-k">drive_type</span><span class="pop-v" id="p-drv">-</span></div>
-      <div class="pop-row"><span class="pop-k">검토결과</span><span class="pop-v" id="p-sta">미검토</span></div>
+      <div class="pop-row"><span class="pop-k">검토결과</span><span class="pop-v" id="p-sta">확인대상</span></div>
       <div class="pop-row"><span class="pop-k">구간 수</span><span class="pop-v" id="p-seg">-</span></div>
       <button class="pop-dl" onclick="downloadGeoJSON(selIdx)">GeoJSON 다운로드</button>
     </div>
@@ -163,7 +163,7 @@ let NOTICE_TITLE = '';
 const VERSION = new URLSearchParams(window.location.search).get('v');
 
 const COLOR  = {owned:'#27AE60', unowned:'#E74C3C', none:'#888888'};
-const SLABEL = {owned:'보유', unowned:'미보유', none:'미검토'};
+const SLABEL = {owned:'보유', unowned:'미보유', none:'확인대상'};
 
 // ── KV 읽기 ───────────────────────────────────────────────────────────────────
 async function loadStatusFromKV() {
@@ -210,7 +210,7 @@ async function loadData() {
     document.title = '타사 도로 검토 뷰어 — ' + VERSION;
     document.getElementById('sb-subtitle').textContent = subtitle;
 
-    // cats 초기화: KV 저장값 우선 → JSON status 참조 → 미검토
+    // cats 초기화: KV 저장값 우선 → JSON status 참조 → 확인대상
     cats = ROADS.map(function(r) {
       if (kvStatus[r.update_id]) return kvStatus[r.update_id];
       const s = r.status || '';
@@ -238,7 +238,7 @@ function setStatus(idx, value, event) {
   // 지도 선 색상도 즉시 반영
   render();
   updateStats();
-  if (selIdx === idx) document.getElementById('p-sta').textContent = SLABEL[cats[idx]] || '미검토';
+  if (selIdx === idx) document.getElementById('p-sta').textContent = SLABEL[cats[idx]] || '확인대상';
   applyFilters();
 }
 
@@ -264,7 +264,7 @@ function closeExportMenu() {
 }
 document.addEventListener('click', closeExportMenu);
 
-// 현재 선택된 필터(전체/보유/미보유/미검토) 기준으로 대상 도로 추출
+// 현재 선택된 필터(전체/보유/미보유/확인대상) 기준으로 대상 도로 추출
 function getFilteredRoads() {
   return ROADS.map(function(r, i){ return {r, i}; })
     .filter(function(x){ return curFilter === 'all' || cats[x.i] === curFilter; });
@@ -293,12 +293,12 @@ function exportData() {
 
   const roadsOut = filtered.map(function(x) {
     const copy = Object.assign({}, x.r);
-    copy.status = cats[x.i] === 'owned' ? '보유' : cats[x.i] === 'unowned' ? '미보유' : '';
+    copy.status = cats[x.i] === 'owned' ? '보유' : cats[x.i] === 'unowned' ? '미보유' : '확인대상';
     copy.segments = segsByRoad[x.i] || [];  // 이 도로의 구간 좌표 목록 [[lon,lat],...]
     return copy;
   });
 
-  const filterLabel = {all:'전체', owned:'보유', unowned:'미보유', none:'미검토'};
+  const filterLabel = {all:'전체', owned:'보유', unowned:'미보유', none:'확인대상'};
   const payload = {
     version: VERSION,
     title: document.getElementById('sb-subtitle').textContent,
@@ -337,7 +337,7 @@ function exportXLSX() {
     return;
   }
   const filtered = getFilteredRoads();
-  const filterLabel = {all:'전체', owned:'보유', unowned:'미보유', none:'미검토'};
+  const filterLabel = {all:'전체', owned:'보유', unowned:'미보유', none:'확인대상'};
 
   const aoa = [
     [null, '현대기아업데이트', null, null, null, null, null, null, '아이나비', null, null, null],
@@ -547,7 +547,7 @@ function renderList() {
       '<div class="ri-top">'+
         '<span class="ri-id" title="'+(r.content||'')+'">'+(r.content||r.update_id||'-')+'</span>'+
         '<select class="status-select'+selCls+'" onchange="setStatus('+i+',this.value,event)" onclick="event.stopPropagation()">'+
-          '<option value=""'        +(cat==='none'   ?'selected':'')+'>미검토</option>'+
+          '<option value=""'        +(cat==='none'   ?'selected':'')+'>확인대상</option>'+
           '<option value="owned"'   +(cat==='owned'  ?'selected':'')+'>보유</option>'+
           '<option value="unowned"' +(cat==='unowned'?'selected':'')+'>미보유</option>'+
         '</select>'+
@@ -568,7 +568,7 @@ function showInfo(idx) {
   document.getElementById('p-cat').textContent   = r.category ||'-';
   document.getElementById('p-cnt').textContent   = r.update_id||'-';
   document.getElementById('p-drv').textContent   = r.drive_type||'-';
-  document.getElementById('p-sta').textContent   = SLABEL[cats[idx]]||'미검토';
+  document.getElementById('p-sta').textContent   = SLABEL[cats[idx]]||'확인대상';
   document.getElementById('p-seg').textContent   = r.seg_count+'개';
   document.getElementById('popup').style.display ='block';
   renderList();
@@ -598,7 +598,7 @@ function downloadGeoJSON(idx) {
     properties:{update_id:r.update_id||'',subject:r.subject||'',
       drive_type:r.drive_type||'',road_type:r.road_type||'',
       category:r.category||'',content:r.content||'',
-      status:cats[idx]==='owned'?'보유':cats[idx]==='unowned'?'미보유':''}}]};
+      status:cats[idx]==='owned'?'보유':cats[idx]==='unowned'?'미보유':'확인대상'}}]};
   const blob=new Blob([JSON.stringify(fc,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');

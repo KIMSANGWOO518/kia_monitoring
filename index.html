@@ -95,7 +95,7 @@ async function loadVersions() {
           <span class="stat s-total">${total}개 도로</span>
           ${owned   ? `<span class="stat s-owned">보유 ${owned}</span>`       : ''}
           ${unowned ? `<span class="stat s-unowned">미보유 ${unowned}</span>` : ''}
-          ${none > 0 ? `<span class="stat s-none">미검토 ${none}</span>` : ''}
+          ${none > 0 ? `<span class="stat s-none">확인대상 ${none}</span>` : ''}
         </div>
       </div>`;
     }).join('');
